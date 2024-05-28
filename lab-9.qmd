@@ -1,0 +1,52 @@
+---
+title: "Lab 9: Generative Art"
+author: "Andrew Kerr"
+format: html
+editor: visual
+embed-resources: true
+---
+
+# Set-up
+```{r}
+library(ggplot2)
+library(tibble)
+```
+
+# Basic
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
