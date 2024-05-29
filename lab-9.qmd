@@ -7,32 +7,234 @@ embed-resources: true
 ---
 
 # Set-up
+
 ```{r}
+#| label: set-up
+#| message: false
+
+library(tidyverse)
 library(ggplot2)
 library(tibble)
+library(scales)
+library(ggthemes)
+library(ambient)
 ```
 
-# Basic
+# Ordinary Plotting Functions
+```{r}
+#| label: palette-function
+
+# from: https://github.com/rstudio-conf-2022/art-from-code/blob/main/materials/palette-generators.R
+
+gen_palette <- function(seed = NULL, n = 4) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(canva_palettes, 1)[[1]] %>%
+    (\(x) colorRampPalette(x)(n))()  
+}
+```
+
+```{r}
+#| label: gen-sample-data
+
+# base from: https://art-from-code.netlify.app/day-1/session-1/#colour
+
+sample_data <- function(seed = NULL, n = 100){
+  if(!is.null(seed)) set.seed(seed)
+  dat <- tibble(
+    x0 = runif(n),
+    y0 = runif(n),
+    x1 = x0 + runif(n, min = -.2, max = .2),
+    y1 = y0 + runif(n, min = -.2, max = .2),
+    shade = runif(n), 
+    size = runif(n),
+    shape = factor(sample(0:22, size = n, replace = TRUE)),
+    alpha = runif(n)
+  )
+}
+```
+
+```{r}
+#| label: generative-art-function-1
+
+check_data <- function(data) {
+  
+  if (!is.data.frame(data)) {
+    stop("'data' needs to be a dataframe object")
+  }
+  
+  if(c("x0") %in% names(data) == FALSE) {
+    stop("Column 'x0' not found in the dataframe")
+  }
+  
+  if(c("x1") %in% names(data) == FALSE) {
+    stop("Column 'x1' not found in the dataframe")
+  }
+  
+  if("y0" %in% names(data) == FALSE) {
+    stop("Column 'y0' not found in the dataframe")
+  }
+  
+  if(c("y1") %in% names(data) == FALSE) {
+    stop("Column 'y1' not found in the dataframe")
+  }
+  
+  if(c("shade") %in% names(data) == FALSE) {
+    stop("Column 'shade' not found in the dataframe")
+  }
+  
+  if(c("size") %in% names(data) == FALSE) {
+    stop("Column 'size' not found in the dataframe")
+  }
+  
+  if(c("shape") %in% names(data) == FALSE) {
+    stop("Column 'shape' not found in the dataframe")
+  }
+  
+  if(c("alpha") %in% names(data) == FALSE) {
+    stop("Column 'alpha' not found in the dataframe")
+  }
+}
+
+polar_styled_plot <- function(data = NULL, palette = NULL, seed = NULL) {
+  
+  check_data(data)
+  if(is.null(palette)) palette <- gen_palette()
+  if(!is.null(seed)) set.seed(seed)
+  
+  ggplot(
+    data = data,
+    mapping = aes(
+      x = x0,
+      y = y0,
+      xend = x1,
+      yend = y1,
+      colour = shade,
+      size = size,
+      alpha = alpha
+    )) + 
+    coord_polar(clip = "off") +
+    scale_y_continuous(
+      expand = c(0, 0),
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) +
+    scale_x_continuous(
+      expand = c(0, 0), 
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) + 
+    scale_colour_gradientn(colours = palette) + 
+    scale_size(range = c(0, 10)) + 
+    theme_void() + 
+    guides(
+      colour = guide_none(),
+      size = guide_none(),
+      fill = guide_none(),
+      shape = guide_none(),
+      alpha = guide_none()
+    )
+}
+```
+
+```{r}
+#| warning: false
+
+background <- gen_palette(n = 1)
+pal <- gen_palette(n = 1, seed = 2)
+pal2 <- gen_palette(n = 1, seed = 2222)
+pal3 <- gen_palette(n = 1, seed = 222)
+set.seed(69)
+egg <- runif(1, runif(1, min = 0.5, max = 0.5))
+egg2 <- egg - 0.3
+
+egg_plot <- polar_styled_plot(sample_data(n = 500, seed = 33)) + 
+  geom_violin(fill = pal2, adjust = egg) + 
+  geom_hex(data = sample_data(n = 2, seed = 45), fill = pal3, bins = 2) +
+  geom_violin(fill = pal, adjust = egg2) +
+  geom_hex(data = sample_data(n = 2, seed = 69), fill = pal3, bins = 1)
+```
 
 
+```{r}
+#| warning: false
+
+egg_plot
+```
+
+- **Title:** Egg
+- **Description:** From a sphere of darkness a light arises. Breaking through its
+shell, this creature will need to brave its new, expanded world one step at a time.
+- **Code Description:** Using a sample size of 500 for the violin plots creates
+circles that are almost complete. The second violin plot's adjust argument relies
+on the foremost violin plots, but is slightly smaller to give the impression of depth.
+The geom_hex's have small sample sizes to allow holes in the shapes, and the small bin
+number forces a single cohesive shape rather than a circle of smaller shapes.
 
 
+# Completely Generative
+```{r}
+#| label: helper-functions
 
+blank_canvas <- long_grid(
+  x = seq(from = 0, to = 1, length.out = 2000),
+  y = seq(from = 0, to = 1, length.out = 2000)
+) 
 
+plot_painted_canvas <- function(canvas, palette = NULL) {
+  if(is.null(palette)) {
+    palette <- gen_palette(n = 4)
+  }
+  canvas |> 
+    ggplot(aes(x, y, fill = paint)) + 
+    geom_raster(show.legend = FALSE) +
+    theme_void() +
+    coord_equal() +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_gradientn(colours = palette)
+}
+```
 
+```{r}
+#| label: fractal-art-func
 
+fractal_art <- function(fractal, generator, palette = NULL, ...) {
+  blank_canvas |>
+    mutate(
+      paint = fracture(
+        noise = generator,
+        fractal = fractal,
+        x = x, 
+        y = y, 
+        ...
+      )
+    ) |>
+    plot_painted_canvas(palette = palette)
+}
 
+gen_gate <- function(x, y, frequency, ...) {
+  lf <- gen_simplex(x, y, frequency = frequency, ...)
+  mf <- gen_simplex(x, y, frequency = frequency * 10, ...)
+  hf <- gen_simplex(x, y, frequency = frequency * 200, ...)
+  gate <- gen_simplex(x, y, frequency = frequency / 2, ...) 
+  gate <- normalise(gate)
+  paint <- lf + 
+    (mf + 2) * (gate >= .2 & gate < .8) + 
+    (hf + 2) * (gate >= .1)
+  return(paint)
+}
+```
 
+```{r}
+fractal_art(billow, gen_gate, seed = 69, octaves = 6, 
+            palette = gen_palette(seed = 68, n = 10))
+```
 
-
-
-
-
-
-
-
-
-
+- **Title:** Lake of Blood
+- **Description:** The deep red water is interrupted by intermediate pools of blue.
+One might think the blue would be lost in the sea of red, however it defiantly floats 
+atop, protected by a stark white barriers. The entire view is not quite clear, a bit fuzzy some might say, to reflect the unknown of what occurred to make this sea of red.
+- **Code Description:** The fractal billow allows the lumpy shapes to be made rather than sharper squares or fuzzy shapes. The custom gen_gate generator lets multiple noise patterns mix together, allowing the image to have this sketchy color scheme matched with the scatter of ovals, something that without this function would be a one or the other choice to make. The amount of octaves does not have much effect when using this generator, however when using other generators it helps control the amount of shapes generated.
 
 
 
